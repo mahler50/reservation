@@ -27,6 +27,13 @@ enum ReservationStatus {
     BLOCKED = 3;
 }
 
+enum ReservationUpdateType {
+    UNKNOWN = 0;
+    CREATE = 1;
+    UPDATE = 2;
+    DELETE = 3;
+}
+
 message Reservation {
     string id = 1;
     string user_id = 2;
@@ -61,7 +68,7 @@ message ConfirmRequest {
     string id = 1;
 }
 
-messahe ConfirmResponse {
+message ConfirmResponse {
     Reservation reservation = 1;
 }
 
@@ -90,6 +97,13 @@ message QueryRequest {
     google.protobuf.Timestamp end = 5;
 }
 
+message WatchRequest {}
+
+message WatchResponse {
+    int8 op = 1;
+    Reservation reservation = 2;
+}
+
 service ReservationService {
     rpc reserve(ReserveRequest) returns (ReserveResponse);
     rpc update(UpdateRequest) returns (UpdateResponse);
@@ -97,8 +111,88 @@ service ReservationService {
     rpc cancel(CancelRequest) returns (CancelResponse);
     rpc get(GetRequest) returns (GetResponse);
     rpc query(QueryRequest) returns (stream Reservation);
+    // another system could watch newly created/confirmed/cancelled reservation.
+    rpc watch(WatchRequest) returns (WatchResponse);
 }
 
+```
+
+
+## Database schema
+
+We use postgres as our database. Below is the basic schema for the reservation service:
+
+```sql
+CREATE SCHEMA rsvp;
+CREATE TYPE rsvp.reservation_status AS ENUM (
+    'UNSPECIFIED',
+    'PENDING',
+    'CONFIRMED',
+    'BLOCKED'
+);
+
+CREATE TYPE rsvp.reservation_update_type as ENUM (
+    'UNKNOWN',
+    'CREATE',
+    'UPDATE',
+    'DELETE',
+)
+
+CREATE TABLE rsvp.reservations (
+    id uuid NOT NULL DEFAULT uuid_generate_v4(),
+    user_id VARCHAR(64) NOT NULL,
+    status rsvp.reservation_status NOT NULL DEFAULT 'PENDING',
+
+    resource_id VARCHAR(64) NOT NULL,
+    timespan tstzrange NOT NULL,
+
+    note TEXT,
+
+    -- Ensure that no two reservations overlap for the same resource
+    CONSTRAINT reservations_pkey PRIMARY KEY (id),
+    CONSTRAINT reservations_resource_exclusion
+        EXCLUDE USING GIST (resource_id WITH =, timespan WITH &&)
+);
+CREATE INDEX reservations_user_id_idx ON rsvp.reservations (user_id);
+CREATE INDEX reservations_resource_id_idx ON rsvp.reservations (resource_id);
+
+-- If user_id id null, find all reservations for the resource in the given time range.
+-- If reservation_id is null, find all reservations for the user in the given time range.
+-- If both are null, find all reservations in the given time range.
+CREATE OR REPLACE FUNCTION rsvp.query(uid text, rid text, during tstzrange) RETURNS TABLE rsvp.reservations as $$ $$ LANGUAGE plpgsql;
+
+-- reservatuib change table
+CREATE TABLE rsvp.reservations_changes (
+    id SERIAL NOT NULL,
+    reservation_id uuid NOT NULL,
+    op revp.reservation_update_type NOT NULL,
+)
+
+-- trigger for create/updarte/delete a reservation.
+CREATE OR REPLACE FUNCTION rsvp.reservation_trigger() RETURNS trigger AS
+$$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        -- update reservations_changes
+        INSERT INTO rsvp.reservations_changes (reservation_id, op) VALUES (NEW.id, 'CREATE');
+    ELSIF TG_OP = 'UPDATE' THEN
+        -- if status changed, update reservations_changes
+        IF OLD.status <> NEW.status THEN
+            INSERT INTO rsvp.reservations_changes (reservation_id, op) VALUES (NEW.id, 'UPDATE');
+        END IF;
+    ELSIF TG_OP = 'DELETE' THEN
+        -- update reservations_changes
+        INSERT INTO rsvp.reservations_changes (reservation_id, op) VALUES (OLD.id, 'DELETE');
+    END IF;
+    -- notify the reservation change
+    NOTIFY reservation_update;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER reservation_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON rsvp.reservations
+    FOR EACH ROW EXECUTE FUNCTION rsvp.reservation_trigger();
 ```
 
 ## Reference-level explanation
