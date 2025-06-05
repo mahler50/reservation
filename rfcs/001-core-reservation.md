@@ -20,18 +20,20 @@ Basic architecture:
 We would use gRPC as a service interface. Below is the basic proto file for the service:
 
 ```proto
+import "google/protobuf/timestamp.proto";
+
 enum ReservationStatus {
-    UNSPECIFIED = 0;
-    PENDING = 1;
-    CONFIRMED = 2;
-    BLOCKED = 3;
+   RESERVATION_STATUS_UNKNOWN = 0;
+   RESERVATION_STATUS_PENDING = 1;
+   RESERVATION_STATUS_CONFIRMED = 2;
+   RESERVATION_STATUS_BLOCKED = 3;
 }
 
 enum ReservationUpdateType {
-    UNKNOWN = 0;
-    CREATE = 1;
-    UPDATE = 2;
-    DELETE = 3;
+    RESERVATION_UPDATE_TYPE_UNKNOWN = 0;
+    RESERVATION_UPDATE_TYPE_CREATE = 1;
+    RESERVATION_UPDATE_TYPE_UPDATE = 2;
+    RESERVATION_UPDATE_TYPE_DELETE = 3;
 }
 
 message Reservation {
@@ -100,7 +102,7 @@ message QueryRequest {
 message WatchRequest {}
 
 message WatchResponse {
-    int8 op = 1;
+    ReservationUpdateType op = 1;
     Reservation reservation = 2;
 }
 
