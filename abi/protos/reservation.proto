@@ -3,6 +3,7 @@ package reservation;
 
 import "google/protobuf/timestamp.proto";
 
+// reservation status for a given time period.
 enum ReservationStatus {
    RESERVATION_STATUS_UNKNOWN = 0;
    RESERVATION_STATUS_PENDING = 1;
@@ -10,6 +11,7 @@ enum ReservationStatus {
    RESERVATION_STATUS_BLOCKED = 3;
 }
 
+// when reservation is changed, record the update type.
 enum ReservationUpdateType {
     RESERVATION_UPDATE_TYPE_UNKNOWN = 0;
     RESERVATION_UPDATE_TYPE_CREATE = 1;
@@ -17,6 +19,7 @@ enum ReservationUpdateType {
     RESERVATION_UPDATE_TYPE_DELETE = 3;
 }
 
+// Core reservation object.
 message Reservation {
     string id = 1;
     string user_id = 2;
@@ -31,69 +34,91 @@ message Reservation {
     string note = 7;
 }
 
+// To make a reservation(id shuold be empty).
 message ReserveRequest {
     Reservation reservation = 1;
 }
 
+// Created reservation will be returned.
 message ReserveResponse {
     Reservation reservation = 1;
 }
 
+// To update a reservation(only note is updatable).
 message UpdateRequest {
     string note = 1;
 }
 
+// Updated reservation will be returned.
 message UpdateResponse {
     Reservation reservation = 1;
 }
 
+// To change reservation status to CONFIRMED.
 message ConfirmRequest {
     string id = 1;
 }
 
+// Confirmed reservation will be returned.
 message ConfirmResponse {
     Reservation reservation = 1;
 }
 
+// To cancel a reservation.
 message CancelRequest {
     string id = 1;
 }
 
+// Cancelled reservation will be returned.
 message CancelResponse {
     Reservation reservation = 1;
 }
 
+// To get a reservation by id.
 message GetRequest {
     string id = 1;
 }
 
+// Reservation with the given id will be returned.
 message GetResponse {
     Reservation reservation = 1;
 }
 
+// To query reservations by resource_id, user_id, status, start and end time.
 message QueryRequest {
+    // resource id for the reservation query. If empty, query all resources.
     string resource_id = 1;
+    // user id for the reservation query. If empty, query all users.
     string user_id = 2;
     // use status to filter results. If UNSPECIFIED, return all reservations.
     ReservationStatus status = 3;
+    // start and end time for the reservation query. If 0, use infinite time range.
     google.protobuf.Timestamp start = 4;
     google.protobuf.Timestamp end = 5;
 }
 
+// Client can watch reservation changes.
 message WatchRequest {}
 
+// Reservation changes will be streamed to the client.
 message WatchResponse {
     ReservationUpdateType op = 1;
     Reservation reservation = 2;
 }
 
 service ReservationService {
+    // Create a reservation.
     rpc reserve(ReserveRequest) returns (ReserveResponse);
+    // Update a reservation.
     rpc update(UpdateRequest) returns (UpdateResponse);
+    // Confirm a reservation.
     rpc confirm(ConfirmRequest) returns (ConfirmResponse);
+    // Cancel a reservation.
     rpc cancel(CancelRequest) returns (CancelResponse);
+    // Get a reservation by id.
     rpc get(GetRequest) returns (GetResponse);
+    // Query reservations by resource_id, user_id, status, start and end time.
     rpc query(QueryRequest) returns (stream Reservation);
     // another system could watch newly created/confirmed/cancelled reservation.
-    rpc watch(WatchRequest) returns (WatchResponse);
+    rpc watch(WatchRequest) returns (stream WatchResponse);
 }

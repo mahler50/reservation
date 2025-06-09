@@ -134,7 +134,7 @@ CREATE TYPE rsvp.reservation_status AS ENUM (
 );
 
 CREATE TABLE rsvp.reservations (
-    id uuid NOT NULL DEFAULT uuid_generate_v4(),
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
     user_id VARCHAR(64) NOT NULL,
     status rsvp.reservation_status NOT NULL DEFAULT 'PENDING',
 
@@ -154,7 +154,7 @@ CREATE INDEX reservations_resource_id_idx ON rsvp.reservations (resource_id);
 -- If user_id id null, find all reservations for the resource in the given time range.
 -- If reservation_id is null, find all reservations for the user in the given time range.
 -- If both are null, find all reservations in the given time range.
-CREATE OR REPLACE FUNCTION rsvp.query(uid text, rid text, during tstzrange) RETURNS TABLE rsvp.reservations as $$ $$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION rsvp.query(uid text, rid text, during tstzrange) RETURNS TABLE (LIKE rsvp.reservations) as $$ $$ LANGUAGE plpgsql;
 
 ```
 
@@ -165,15 +165,15 @@ CREATE TYPE rsvp.reservation_update_type as ENUM (
     'UNKNOWN',
     'CREATE',
     'UPDATE',
-    'DELETE',
-)
--- reservatuib change table
+    'DELETE'
+);
+-- reservation change table
 CREATE TABLE rsvp.reservations_changes (
     id SERIAL NOT NULL,
     reservation_id uuid NOT NULL,
-    op revp.reservation_update_type NOT NULL,
+    op rsvp.reservation_update_type NOT NULL,
 )
-
+;
 -- trigger for create/updarte/delete a reservation.
 CREATE OR REPLACE FUNCTION rsvp.reservation_trigger() RETURNS trigger AS
 $$

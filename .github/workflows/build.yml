@@ -20,6 +20,11 @@ jobs:
           fetch-depth: 0
       - name: Install Rust
         run: rustup toolchain install stable --component llvm-tools-preview
+      # install protoc
+      - name: Install protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: install nextest
