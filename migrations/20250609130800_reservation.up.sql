@@ -1,5 +1,5 @@
 CREATE TYPE rsvp.reservation_status AS ENUM (
-    'UNSPECIFIED',
+    'UNKNOWN',
     'PENDING',
     'CONFIRMED',
     'BLOCKED'
