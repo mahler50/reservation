@@ -1,13 +1,17 @@
 use sqlx::postgres::PgDatabaseError;
 use thiserror::Error;
 
+pub use crate::error::conflict::*;
+
+mod conflict;
+
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Database error: {0}")]
     DatabaseError(sqlx::Error),
 
-    #[error("Conflict with existing reservation: {0}")]
-    ConflictReservation(String),
+    #[error("Conflict with existing reservation")]
+    ConflictReservation(ReservationConflictInfo),
 
     #[error("Invalid start or end time for the reservation")]
     InvalidTimespan,
@@ -29,7 +33,7 @@ impl From<sqlx::Error> for Error {
                 let err: &PgDatabaseError = e.downcast_ref();
                 match (err.code(), err.schema(), err.table()) {
                     ("23P01", Some("rsvp"), Some("reservations")) => {
-                        Error::ConflictReservation(err.detail().unwrap().to_string())
+                        Error::ConflictReservation(err.detail().unwrap().parse().unwrap())
                     }
                     _ => Error::DatabaseError(sqlx::Error::Database(e)),
                 }
@@ -38,15 +42,3 @@ impl From<sqlx::Error> for Error {
         }
     }
 }
-
-// TODO: parse conflict error to extract more details
-// pub struct ReservationConflictInfo {
-//     a: ReservationWindow,
-//     b: ReservationWindow,
-// }
-
-// pub struct ReservationWindow {
-//     rid: String,
-//    start: DateTime<Utc>,
-//     end: DateTime<Utc>,
-// }

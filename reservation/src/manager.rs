@@ -71,6 +71,8 @@ impl ReservationManager {
 
 #[cfg(test)]
 mod tests {
+    use abi::ReservationConflictInfo;
+
     use super::*;
 
     #[sqlx_database_tester::test(pool(variable = "migrated_pool", migrations = "../migrations"))]
@@ -110,6 +112,12 @@ mod tests {
         let rsvp1 = manager.reserve(rsvp1).await.unwrap();
         assert!(!rsvp1.id.is_empty());
         let err = manager.reserve(rsvp2).await.unwrap_err();
-        println!("{:?}", err);
+        if let abi::Error::ConflictReservation(ReservationConflictInfo::Parsed(info)) = err {
+            assert_eq!(info.old.rid, "room-114514");
+            assert_eq!(info.old.start.to_string(), "2025-06-01 19:00:00 UTC");
+            assert_eq!(info.old.end.to_string(), "2025-06-03 19:00:00 UTC");
+        } else {
+            panic!("Expected a conflict reservation error");
+        }
     }
 }
