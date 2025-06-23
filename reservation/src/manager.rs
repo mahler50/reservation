@@ -30,9 +30,14 @@ impl Rsvp for ReservationManager {
         Ok(rsvp)
     }
 
-    async fn change_status(&self, _id: ReservationId) -> Result<abi::Reservation, abi::Error> {
-        // Implementation for changing reservation status
-        unimplemented!()
+    async fn change_status(&self, id: ReservationId) -> Result<abi::Reservation, abi::Error> {
+        let id = Uuid::parse_str(&id).map_err(|_| abi::Error::InvalidReservationId(id.clone()))?;
+        // if current status is `pending`, change it to `confirmed`, otherwie do nothing.
+        let rsvp: abi::Reservation = sqlx::query_as(
+            "UPDATE rsvp.reservations SET status = 'CONFIRMED' WHERE id = $1::uuid AND status = 'PENDING' RETURNING *"
+        ).bind(id).fetch_one(&self.pool).await?;
+
+        Ok(rsvp)
     }
 
     async fn update_note(
@@ -71,7 +76,7 @@ impl ReservationManager {
 
 #[cfg(test)]
 mod tests {
-    use abi::ReservationConflictInfo;
+    use abi::{ReservationConflict, ReservationConflictInfo, ReservationWindow};
 
     use super::*;
 
@@ -112,12 +117,61 @@ mod tests {
         let rsvp1 = manager.reserve(rsvp1).await.unwrap();
         assert!(!rsvp1.id.is_empty());
         let err = manager.reserve(rsvp2).await.unwrap_err();
-        if let abi::Error::ConflictReservation(ReservationConflictInfo::Parsed(info)) = err {
-            assert_eq!(info.old.rid, "room-114514");
-            assert_eq!(info.old.start.to_string(), "2025-06-01 19:00:00 UTC");
-            assert_eq!(info.old.end.to_string(), "2025-06-03 19:00:00 UTC");
-        } else {
-            panic!("Expected a conflict reservation error");
-        }
+
+        let info = ReservationConflictInfo::Parsed(ReservationConflict {
+            new: ReservationWindow {
+                rid: "room-114514".to_string(),
+                start: "2025-06-02 19:00:00 UTC".parse().unwrap(),
+                end: "2025-06-05 19:00:00 UTC".parse().unwrap(),
+            },
+            old: ReservationWindow {
+                rid: "room-114514".to_string(),
+                start: "2025-06-01 19:00:00 UTC".parse().unwrap(),
+                end: "2025-06-03 19:00:00 UTC".parse().unwrap(),
+            },
+        });
+
+        assert_eq!(err, abi::Error::ConflictReservation(info));
+    }
+
+    #[sqlx_database_tester::test(pool(variable = "migrated_pool", migrations = "../migrations"))]
+    async fn change_status_should_work() {
+        let manager = ReservationManager::new(migrated_pool.clone());
+        let rsvp = abi::Reservation::new_pending(
+            "kobe",
+            "room-114514",
+            "2025-06-01T12:00:00-07:00".parse().unwrap(),
+            "2025-06-03T12:00:00-07:00".parse().unwrap(),
+            "Man, what can I say!",
+        );
+        let rsvp = manager.reserve(rsvp).await.unwrap();
+        assert_eq!(rsvp.status, abi::ReservationStatus::Pending as i32);
+        let updated_rsvp = manager.change_status(rsvp.id.clone()).await.unwrap();
+        assert_eq!(
+            updated_rsvp.status,
+            abi::ReservationStatus::Confirmed as i32
+        );
+        assert_eq!(updated_rsvp.id, rsvp.id);
+    }
+
+    #[sqlx_database_tester::test(pool(variable = "migrated_pool", migrations = "../migrations"))]
+    async fn change_status_on_no_pending_rsvp_should_do_nothing() {
+        let manager = ReservationManager::new(migrated_pool.clone());
+        let rsvp = abi::Reservation::new_pending(
+            "kobe",
+            "room-114514",
+            "2025-06-01T12:00:00-07:00".parse().unwrap(),
+            "2025-06-03T12:00:00-07:00".parse().unwrap(),
+            "Man, what can I say!",
+        );
+        let rsvp = manager.reserve(rsvp).await.unwrap();
+        assert_eq!(rsvp.status, abi::ReservationStatus::Pending as i32);
+        let updated_rsvp = manager.change_status(rsvp.id.clone()).await.unwrap();
+        assert_eq!(
+            updated_rsvp.status,
+            abi::ReservationStatus::Confirmed as i32
+        );
+        let res = manager.change_status(rsvp.id.clone()).await.unwrap_err();
+        assert_eq!(res, abi::Error::NotFound);
     }
 }
