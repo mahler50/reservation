@@ -14,14 +14,25 @@ jobs:
       matrix:
         platform: [ubuntu-latest]
     runs-on: ${{ matrix.platform }}
+    services:
+      postgres:
+        image: postgres:17.5
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: reservations
+        ports:
+          - 5432:5432
+        # Set health check to ensure the service is ready before running tests
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Install PgSQL
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql postgresql-contrib libpq-dev
       - name: Install Rust
         run: rustup toolchain install stable --component llvm-tools-preview
       # install protoc
