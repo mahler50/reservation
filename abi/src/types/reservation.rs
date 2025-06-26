@@ -1,4 +1,4 @@
-use std::ops::{Bound, Range};
+use std::ops::Bound;
 
 use chrono::{DateTime, FixedOffset, Utc};
 use sqlx::{
@@ -8,8 +8,9 @@ use sqlx::{
 };
 
 use crate::{
-    Error, Reservation, ReservationStatus, RsvpStatus,
-    utils::{timestamp_to_utc_time, utc_time_to_timestamp},
+    Error, Reservation, ReservationStatus, RsvpStatus, Validator,
+    types::{get_time_range, vlidate_time_range},
+    utils::utc_time_to_timestamp,
 };
 
 impl Reservation {
@@ -32,8 +33,13 @@ impl Reservation {
         }
     }
 
-    /// Validates the reservation.
-    pub fn validate(&self) -> Result<(), Error> {
+    pub fn get_timespan(&self) -> PgRange<DateTime<Utc>> {
+        get_time_range(self.start.as_ref(), self.end.as_ref())
+    }
+}
+
+impl Validator for Reservation {
+    fn validate(&self) -> Result<(), Error> {
         if self.user_id.is_empty() {
             return Err(Error::InvalidUserId(self.user_id.clone()));
         }
@@ -42,21 +48,8 @@ impl Reservation {
             return Err(Error::InvalidResourceId(self.resource_id.clone()));
         }
 
-        if self.start.is_none() || self.end.is_none() {
-            return Err(Error::InvalidTimespan);
-        }
-        let start = timestamp_to_utc_time(self.start.as_ref().unwrap());
-        let end = timestamp_to_utc_time(self.end.as_ref().unwrap());
-        if start >= end {
-            return Err(Error::InvalidTimespan);
-        }
+        vlidate_time_range(self.start.as_ref(), self.end.as_ref())?;
         Ok(())
-    }
-
-    pub fn get_timespan(&self) -> Range<DateTime<Utc>> {
-        let start = timestamp_to_utc_time(self.start.as_ref().unwrap());
-        let end = timestamp_to_utc_time(self.end.as_ref().unwrap());
-        start..end
     }
 }
 

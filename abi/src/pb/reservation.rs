@@ -96,6 +96,15 @@ pub struct ReservationQuery {
     pub start: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(message, optional, tag = "5")]
     pub end: ::core::option::Option<::prost_types::Timestamp>,
+    /// current page for query
+    #[prost(int32, tag = "6")]
+    pub page: i32,
+    /// current page size
+    #[prost(int32, tag = "7")]
+    pub page_size: i32,
+    /// sort direction
+    #[prost(bool, tag = "8")]
+    pub desc: bool,
 }
 /// / Query request for reservations.
 #[derive(Clone, PartialEq, ::prost::Message)]

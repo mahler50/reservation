@@ -95,6 +95,12 @@ message ReservationQuery {
     // start and end time for the reservation query. If 0, use infinite time range.
     google.protobuf.Timestamp start = 4;
     google.protobuf.Timestamp end = 5;
+    // current page for query
+    int32 page = 6;
+    // current page size
+    int32 page_size = 7;
+    // sort direction
+    bool desc = 8;
 }
 
 /// Query request for reservations.
