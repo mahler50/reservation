@@ -33,13 +33,13 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Set up PostgreSQL env
+        run: export DATABASE_URL=postgres://postgres:postgres@localhost:5432/reservations
       - name: Install Rust
         run: rustup toolchain install stable --component llvm-tools-preview
       # install protoc
       - name: Install protoc
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
+        uses: arduino/setup-protoc@v1
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: install nextest
