@@ -3,6 +3,15 @@
 -- If both are null, find all reservations in the given time range.
 CREATE OR REPLACE FUNCTION rsvp.query(uid text, rid text, during tstzrange, r_status rsvp.reservation_status, page integer default 1, page_size integer default 10, is_desc boolean default false) RETURNS TABLE (LIKE rsvp.reservations) as $$
 BEGIN
+    -- page number can not be less than 1
+    IF page < 1 THEN
+        page := 1;
+    END IF;
+    -- pagr size can not be less than 10 or greater than 100
+    IF page_size < 10 or page_size > 100 THEN
+        page_size := 10;
+    END IF;
+
     RETURN QUERY
     SELECT *
     FROM rsvp.reservations r

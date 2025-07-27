@@ -7,6 +7,9 @@ pub use error::{Error, ReservationConflict, ReservationConflictInfo, Reservation
 pub use pb::*;
 pub use utils::*;
 
+// export `prost_types::Timestamp`
+pub use prost_types::Timestamp;
+
 pub trait Validator {
     fn validate(&self) -> Result<(), Error>;
 }

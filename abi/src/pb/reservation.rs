@@ -80,30 +80,38 @@ pub struct GetResponse {
     pub reservation: ::core::option::Option<Reservation>,
 }
 /// Query reservations by resource_id, user_id, status, start and end time.
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(derive_builder::Builder, Clone, PartialEq, ::prost::Message)]
 pub struct ReservationQuery {
     /// resource id for the reservation query. If empty, query all resources.
     #[prost(string, tag = "1")]
+    #[builder(setter(into), default)]
     pub resource_id: ::prost::alloc::string::String,
     /// user id for the reservation query. If empty, query all users.
     #[prost(string, tag = "2")]
+    #[builder(setter(into), default)]
     pub user_id: ::prost::alloc::string::String,
     /// use status to filter results. If UNSPECIFIED, return all reservations.
     #[prost(enumeration = "ReservationStatus", tag = "3")]
+    #[builder(setter(into), default)]
     pub status: i32,
     /// start and end time for the reservation query. If 0, use infinite time range.
     #[prost(message, optional, tag = "4")]
+    #[builder(setter(into, strip_option))]
     pub start: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(message, optional, tag = "5")]
+    #[builder(setter(into, strip_option))]
     pub end: ::core::option::Option<::prost_types::Timestamp>,
     /// current page for query
     #[prost(int32, tag = "6")]
+    #[builder(setter(into), default)]
     pub page: i32,
     /// current page size
     #[prost(int32, tag = "7")]
+    #[builder(setter(into), default)]
     pub page_size: i32,
     /// sort direction
     #[prost(bool, tag = "8")]
+    #[builder(setter(into), default)]
     pub desc: bool,
 }
 /// / Query request for reservations.
@@ -124,7 +132,9 @@ pub struct WatchResponse {
     pub reservation: ::core::option::Option<Reservation>,
 }
 /// reservation status for a given time period.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[derive(
+    sqlx::Type, Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration,
+)]
 #[repr(i32)]
 pub enum ReservationStatus {
     Unknown = 0,

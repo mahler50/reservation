@@ -38,3 +38,50 @@ pub fn get_time_range(
         end: Bound::Excluded(end),
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn vlidate_time_range_should_work() {
+        let start = Timestamp {
+            seconds: 1,
+            nanos: 0,
+        };
+        let end = Timestamp {
+            seconds: 2,
+            nanos: 0,
+        };
+        assert!(vlidate_time_range(Some(&start), Some(&end)).is_ok());
+    }
+
+    #[test]
+    fn vlidate_time_range_should_reject_invalid_range() {
+        let start = Timestamp {
+            seconds: 2,
+            nanos: 0,
+        };
+        let end = Timestamp {
+            seconds: 1,
+            nanos: 0,
+        };
+        assert!(vlidate_time_range(Some(&start), Some(&end)).is_err());
+    }
+
+    #[test]
+    fn get_time_range_should_work() {
+        let start = Timestamp {
+            seconds: 1,
+            nanos: 0,
+        };
+        let end = Timestamp {
+            seconds: 2,
+            nanos: 0,
+        };
+        let range = get_time_range(Some(&start), Some(&end));
+        assert_eq!(range.start, Bound::Included(timestamp_to_utc_time(&start)));
+        assert_eq!(range.end, Bound::Excluded(timestamp_to_utc_time(&end)));
+    }
+}

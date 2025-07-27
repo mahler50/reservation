@@ -119,7 +119,9 @@ impl ReservationManager {
 
 #[cfg(test)]
 mod tests {
-    use abi::{ReservationConflict, ReservationConflictInfo, ReservationQuery, ReservationWindow};
+    use abi::{
+        ReservationConflict, ReservationConflictInfo, ReservationQueryBuilder, ReservationWindow,
+    };
     use chrono::{DateTime, FixedOffset};
 
     use super::*;
@@ -239,19 +241,71 @@ mod tests {
         let rsvp = make_basic_reservation(&manager).await.unwrap();
         assert!(!rsvp.id.is_empty());
 
-        let query = ReservationQuery::new(
-            "kobe",
-            "room-114514",
-            "2025-06-01T12:00:00-07:00".parse().unwrap(),
-            "2025-06-03T12:00:00-07:00".parse().unwrap(),
-            abi::ReservationStatus::Pending,
-            1,
-            10,
-            false,
-        );
+        let query = ReservationQueryBuilder::default()
+            .user_id("kobe")
+            .resource_id("room-114514")
+            .start(
+                "2025-06-01T12:00:00-07:00"
+                    .parse::<abi::Timestamp>()
+                    .unwrap(),
+            )
+            .end(
+                "2025-06-03T12:00:00-07:00"
+                    .parse::<abi::Timestamp>()
+                    .unwrap(),
+            )
+            .status(abi::ReservationStatus::Pending as i32)
+            .build()
+            .unwrap();
         let rsvps = manager.query(query).await.unwrap();
         assert_eq!(rsvps.len(), 1);
         assert_eq!(rsvps[0].id, rsvp.id);
+
+        // if window is not in range, should return empty
+        let query = ReservationQueryBuilder::default()
+            .user_id("kobe")
+            .resource_id("room-114514")
+            .start(
+                "2025-06-04T12:00:00-07:00"
+                    .parse::<abi::Timestamp>()
+                    .unwrap(),
+            )
+            .end(
+                "2025-06-05T12:00:00-07:00"
+                    .parse::<abi::Timestamp>()
+                    .unwrap(),
+            )
+            .status(abi::ReservationStatus::Pending as i32)
+            .build()
+            .unwrap();
+        let rsvps = manager.query(query).await.unwrap();
+        assert_eq!(rsvps.len(), 0);
+
+        // if the state is not correct, should return empty.
+        let query = ReservationQueryBuilder::default()
+            .user_id("kobe")
+            .resource_id("room-114514")
+            .start(
+                "2025-06-01T12:00:00-07:00"
+                    .parse::<abi::Timestamp>()
+                    .unwrap(),
+            )
+            .end(
+                "2025-06-03T12:00:00-07:00"
+                    .parse::<abi::Timestamp>()
+                    .unwrap(),
+            )
+            .status(abi::ReservationStatus::Confirmed as i32)
+            .build()
+            .unwrap();
+        let rsvps = manager.query(query.clone()).await.unwrap();
+        assert_eq!(rsvps.len(), 0);
+
+        // change state to confirmed, should return result
+        let rsvp = manager.change_status(rsvp.id).await.unwrap();
+        let rsvps = manager.query(query).await.unwrap();
+        assert_eq!(rsvps.len(), 1);
+        assert_eq!(rsvp.id, rsvps[0].id);
     }
 
     /// Helper functions to create a reservation for testing.
